@@ -1,7 +1,7 @@
 type ApiLeafValue = Function | string | number | boolean | null | undefined;
 type RpcApi = { [key: string]: RpcApi | ApiLeafValue };
 
-export const handleRequest = ({
+export const handleRpcRequest = ({
   api,
   req,
 }: {

@@ -1,8 +1,11 @@
 'use client';
-import { rpcClient } from '@/client';
+import { type MyRpcApi } from '@/app/api/rpc/route';
+import { createRpcClient } from '@/rpc-lib/client';
 import { useState } from 'react';
 
-export default function Home() {
+const rpcClient = createRpcClient<MyRpcApi>();
+
+const Home = () => {
   const [res, setRes] = useState<any>();
 
   return (
@@ -10,15 +13,10 @@ export default function Home() {
       <button
         onClick={async () => {
           const user = await rpcClient.user();
-          console.log('user', user);
-
-          const name = await rpcClient.user.name();
-          console.log('name', name);
-
+          const userName = await rpcClient.user.name();
           const hello = await rpcClient.hello('Joey');
-          console.log('hello', hello);
 
-          setRes(hello);
+          setRes({ userRes: user, userNameRes: userName, helloRes: hello });
         }}
       >
         Run RPC
@@ -26,10 +24,10 @@ export default function Home() {
       {res && (
         <div>
           <hr />
-          Response:
-          <pre>{JSON.stringify(res, null, 2)}</pre>
+          Response:<pre>{JSON.stringify(res, null, 2)}</pre>
         </div>
       )}
     </div>
   );
-}
+};
+export default Home;
