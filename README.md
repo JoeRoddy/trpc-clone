@@ -1,17 +1,21 @@
 # tRPC clone (in under 50 lines of code)
 
-[tRPC](https://trpc.io/) enables typesafe, remote function execution of server code from the client side. This repo is a proof of concept replication tRPC, in [under 50 lines of code](./src/rpc-lib/).
+[tRPC](https://trpc.io/) enables typesafe, remote function execution of server code from the client side.
+
+This repo is a proof of concept replication of tRPC using a JavaScript proxy, in [under 50 lines of code](./src/rpc-lib/).
+
+This is just a fun and naive implementation of RPC's in TypeScript, tRPC likely solves thousands of small problems that this solution will not address.
 
 ### Codesandbox Demo
 
-https://githubbox.com/JoeRoddy/trpc-clone-next
+https://githubbox.com/JoeRoddy/trpc-clone
 
 - tRPC-esque "library" at [./src/rpc-lib](./src/rpc-lib/)
 
 Implementation - simple Next.js example usage:
 
 - API code at [./src/app/api/rpc/route.ts](./src/app/api/rpc/route.ts)
-- client code at [./src/app/page.tsx](./src/app/page.tsx)
+- Client code at [./src/app/page.tsx](./src/app/page.tsx)
 
 ## How It's Used
 
@@ -96,7 +100,7 @@ export function createRpcClient<T extends object>(path = []): TransformApi<T> {
 
 ### The Server
 
-The server exposes `handleRpcRequest()` - a simple implementation that takes the incoming request (`path` and `args`), and an API object, and invokes the function at the given path:
+The server exposes `handleRpcRequest()` - a simple implementation that takes the incoming request (`path` and `args`), and an API object, and invokes the function at the given path (or returns any non-func as a value):
 
 ```ts
 // rpc-lib/server/index.ts
