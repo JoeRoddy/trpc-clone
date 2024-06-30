@@ -12,11 +12,10 @@ const Home = () => {
     <div>
       <button
         onClick={async () => {
-          const user = await rpcClient.user();
           const userName = await rpcClient.user.name();
           const hello = await rpcClient.hello('Joey');
 
-          setRes({ userRes: user, userNameRes: userName, helloRes: hello });
+          setRes({ userNameRes: userName, helloRes: hello });
         }}
       >
         Run RPC

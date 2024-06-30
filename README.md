@@ -47,8 +47,6 @@ Implementation - simple Next.js example usage:
   const client = createRpcClient<MyApiType>();
 
   const result = await client.foo.bar({ a: 1 });
-  // get's executed as
-  POST /api/rpc -d "{ path: ['foo', 'bar'], args: { a: 1 } }"
   ```
 
   - the client uses some TS type magic to infer the appropriate types from the structure of your API via the generic passed `createRpcClient<MyApiType>`
@@ -57,6 +55,99 @@ Implementation - simple Next.js example usage:
 
 ## How it works under the hood
 
-- [the client](./src/rpc-lib/client/index.ts) - a [JavaScript proxy](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy) that can accept any dynamic function call and executes it as an equivalent POST request:
+### The Client
 
-- your server - `handleRpcRequest()` - a simple implementation that takes the incoming request (`path` and `args`), and an API object, and invokes the function at the given path:
+[The client](./src/rpc-lib/client/index.ts) uses a [JavaScript proxy](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy) that can accept any dynamic function call and executes it as an equivalent POST request.
+
+```ts
+const result = await client.foo.bar({ a: 1 });
+// gets executed as
+POST /api/rpc -d "{ path: ['foo', 'bar'], args: { a: 1 } }"
+```
+
+This will magically work for any call, even if you haven't defined the function on your API:
+
+```ts
+await func.doesnt.exist({ exists: false })
+// gets executed as
+POST /api/rpc -d "{ path: ['func','doesnt','exist'], args: { exists: false } }"
+```
+
+This will throw an error on the server, but it will make the request.
+
+Here's the client implementation:
+
+```ts
+// rpc-lib/client/index.ts
+export function createRpcClient<T extends object>(path = []): TransformApi<T> {
+  return new Proxy<T>(() => {}, {
+    get: (target, property) =>
+      property === 'toString'
+        ? () => path.join('.')
+        : createRpcClient([...path, property]),
+    apply: (target, thisArg, args) =>
+      fetch('http://localhost:3000/api/rpc', {
+        method: 'POST',
+        body: JSON.stringify({ args, path }),
+      }).then((res) => res.json()),
+  });
+}
+```
+
+### The Server
+
+The server exposes `handleRpcRequest()` - a simple implementation that takes the incoming request (`path` and `args`), and an API object, and invokes the function at the given path:
+
+```ts
+// rpc-lib/server/index.ts
+type ApiLeafValue = Function | string | number | boolean | null | undefined;
+type RpcApi = { [key: string]: RpcApi | ApiLeafValue };
+
+export const handleRpcRequest = ({
+  api,
+  req,
+}: {
+  api: RpcApi;
+  req: { path: string[]; args: any[] };
+}) => {
+  const apiLeaf = req.path.reduce(
+    (acc: RpcApi | ApiLeafValue, key) =>
+      typeof acc === 'object' ? acc?.[key] : acc,
+    api,
+  );
+  if (!apiLeaf) throw new Error(`Invalid path ${req.path.join('.')}`);
+  return typeof apiLeaf === 'function' ? apiLeaf(...req.args) : apiLeaf;
+};
+```
+
+### End to end type safety
+
+The above explains how remote calling works from a JS perspective, but how do we get end to end type safety to work?
+
+You may have noticed, the `createRpcClient` function has a return type of `TransformApi<T>`:
+
+```ts
+export function createRpcClient<T extends object>(path = []): TransformApi<T>;
+```
+
+^ This is doing the heavy lifting of mimicking our API object's types, but changing each individual property to being a function that returns a Promise.
+
+Here's the type implementation that makes that happen.
+
+```ts
+// rpc-lib/client/index.ts
+type Primitive = string | number | boolean | null | undefined;
+type CallableObject<T> = T & { (): Promise<T> };
+type TransformApi<T> = {
+  [K in keyof T]: T[K] extends Primitive
+    ? () => Promise<T[K]>
+    : T[K] extends (...args: infer A) => infer R
+    ? (...args: A) => Promise<R>
+    : CallableObject<TransformApi<T[K]>>;
+};
+```
+
+eg:
+
+- prop of type `number` becomes `() => Promise<number>`
+- prop of type `() => number` to `() => Promise<number>`

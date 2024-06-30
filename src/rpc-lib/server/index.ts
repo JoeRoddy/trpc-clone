@@ -1,4 +1,5 @@
-type ApiLeafValue = Function | string | number | boolean | null | undefined;
+type HandlerFn = (...args: any[]) => any;
+type ApiLeafValue = HandlerFn | string | number | boolean | null | undefined;
 type RpcApi = { [key: string]: RpcApi | ApiLeafValue };
 
 export const handleRpcRequest = ({
